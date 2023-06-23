@@ -1,76 +1,104 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
-from config import ADMINs
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from . import keyboards
+from database.bot_db import sql_command_insert
 
 
-class fsmAdminMentor(StatesGroup):
-    Name = State()
-    Direction = State()
-    Age = State()
-    Group = State()
+
+class FSMAdmin(StatesGroup):
+    name = State()
+    age = State()
+    gender = State()
+    region = State()
+    photo = State()
     submit = State()
 
 
 async def fsm_start(message: types.Message):
-    if message.from_user.id not in ADMINs:
-        await message.answer('Ты не админ!')
-
+    if message.chat.type == 'private':
+        await FSMAdmin.name.set()
+        await message.answer("Имя Ментора?")
     else:
-        await fsmAdminMentor.Name.set()
-        await message.answer('Name ментора ?')
+        await message.reply("Пиши в лс!")
 
 
 async def load_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data['Name'] = message.text
-    await fsmAdminMentor.next()
-    await message.answer('Направление ментора ?')
-
-
-async def load_direction(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['Direction'] = message.text
-    await fsmAdminMentor.next()
-    await message.answer('Возраст ментора ?')
+        data['id'] = message.from_user.id
+        data['username'] = f"@{message.from_user.username}" \
+            if message.from_user.username else None
+        data['name'] = message.text
+    await FSMAdmin.next()
+    await message.answer("Возраст ментора?")
 
 
 async def load_age(message: types.Message, state: FSMContext):
+    if not message.text.isdigit():
+        await message.answer("Пиши числа!")
+    elif not 14 < int(message.text) < 50:
+        await message.answer("Доступ воспрещен!")
+    else:
+        async with state.proxy() as data:
+            data['age'] = message.text
+        await FSMAdmin.next()
+        await message.answer("Какой пол?")
+
+
+async def load_gender(message: types.Message, state: FSMContext):
+    if message.text.lower() not in ['женщина', 'мужчина', 'незнаю', 'муж',
+    'жен']:
+
+        await message.answer("Пользуйся кнопками!")
+    else:
+        async with state.proxy() as data:
+            data['gender'] = message.text
+        await FSMAdmin.next()
+        await message.answer("Регион Ментора?")
+
+
+async def load_region(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data['Age'] = message.text
-    await fsmAdminMentor.next()
-    await message.answer('Группа ментора ?')
+        data['region'] = message.text
+    await FSMAdmin.next()
+    await message.answer("Фото Ментора)")
 
 
-async def load_group(message: types.Message, state: FSMContext):
+async def load_photo(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data['Group'] = message.text
-        await message.answer(f"Информация о менторе: \n"
-                             f"Имя ментора: {data['Name']} \n"
-                             f"Направление ментора: {data['Direction']} \n"
-                             f"Возраст ментора: {data['Age']} \n"
-                             f"Группа ментора: {data['Group']} \n")
-
-    await fsmAdminMentor.next()
-    await message.answer('Всё верно ?')
+        data['photo'] = message.photo[0].file_id
+        await message.answer_photo(data['photo'],
+                                   caption=f"{data['name']} {data['age']} "
+                                   f"{data['gender']} {data['region']}")
+    await FSMAdmin.next()
+    await message.answer("Все верно?")
 
 
-async def load_submit(message: types.Message, state: FSMContext):
+async def submit(message: types.Message, state: FSMContext):
     if message.text.lower() == 'да':
-        # Запись в базу данных
-        await message.answer('Готово!')
+        await sql_command_insert(state)
         await state.finish()
-    elif message.text.lower() == 'нет':
-        await message.answer('Ну ты и чорт конечно -_-')
-        await state.finish()
+        await message.answer("Ментор зареган!")
+    elif message.text.lower() == 'заново':
+        await FSMAdmin.name.set()
+        await message.answer("Как звать?")
+    else:
+        await message.answer("Используй кнопки!")
 
 
 
-def register_mentor(dp: Dispatcher):
+
+
+def register_hanlers_fsm_anketa(dp: Dispatcher):
+
+
     dp.register_message_handler(fsm_start, commands=['reg_mentor'])
-    dp.register_message_handler(load_name, state=fsmAdminMentor.Name)
-    dp.register_message_handler(load_direction, state=fsmAdminMentor.Direction)
-    dp.register_message_handler(load_age, state=fsmAdminMentor.Age)
-    dp.register_message_handler(load_group, state=fsmAdminMentor.Group)
-    dp.register_message_handler(load_submit, state=fsmAdminMentor.submit)
+    dp.register_message_handler(load_name, state=FSMAdmin.name)
+    dp.register_message_handler(load_age, state=FSMAdmin.age)
+    dp.register_message_handler(load_gender, state=FSMAdmin.gender)
+    dp.register_message_handler(load_region, state=FSMAdmin.region)
+    dp.register_message_handler(load_photo, state=FSMAdmin.photo,
+                                content_types=['photo'])
+    dp.register_message_handler(submit, state=FSMAdmin.submit)
+

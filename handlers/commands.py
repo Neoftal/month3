@@ -2,6 +2,8 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher.filters import Text
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import bot, dp
+from database.bot_db import sql_command_random
+
 
 
 
@@ -47,7 +49,12 @@ async def cat_handler(message: types.Message) -> None:
         chat_id=message.from_user.id,
         photo=photo
     )
-
+async def get_random_user(message: types.Message) -> None:
+    random_user = await sql_command_random()
+    await message.answer_photo(random_user[-1],
+                               caption=f"{random_user[3]} {random_user[4]} "
+                                       f"{random_user[5]} {random_user[6]}"
+                                       f"\n\n{random_user[2]}")
 
 def register_handlers_commands(dp: Dispatcher):
     dp.register_message_handler(start_command, commands=['start'])
