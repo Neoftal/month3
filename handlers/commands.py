@@ -3,6 +3,8 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import bot, dp
 from database.bot_db import sql_command_random
+from handlers.HW7 import find
+
 
 
 
@@ -55,8 +57,11 @@ async def get_random_user(message: types.Message) -> None:
                                caption=f"{random_user[3]} {random_user[4]} "
                                        f"{random_user[5]} {random_user[6]}"
                                        f"\n\n{random_user[2]}")
+async def find_(message: types.Message):
+    await message.answer(find(message))
 
 def register_handlers_commands(dp: Dispatcher):
     dp.register_message_handler(start_command, commands=['start'])
     dp.register_message_handler(quiz_1, commands=['quiz'])
     dp.register_message_handler(cat_handler, Text(equals="mem", ignore_case=True))
+    dp.register_message_handler(find_, commands=['find'])
